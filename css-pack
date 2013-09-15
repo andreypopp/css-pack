@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+var JSONStream = require('JSONStream'),
+    pack = require('./index'),
+    parse = JSONStream.parse([true])
+
+process.stdin
+  .pipe(parse)
+  .pipe(pack())
+  .pipe(process.stdout);
