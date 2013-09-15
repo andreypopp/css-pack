@@ -7,16 +7,24 @@ module.exports = function(opts) {
   var graph = {},
       seen = {}
 
-  return through(function(mod) {
-    graph[mod.id] = mod
+  return through(
+    function(mod) {
+      graph[mod.id] = mod
 
-    if (Object.keys(mod.deps).length === 0) return
+      if (Object.keys(mod.deps).length === 0) return
 
-    if (seen[mod.id]) return
-    seen[mod.id] = true
+      if (seen[mod.id]) return
+      seen[mod.id] = true
 
-    this.queue(inline(mod, graph, seen) + '\n')
-  })
+      this.queue(inline(mod, graph, seen) + '\n')
+    },
+    function() {
+      for (var id in graph) {
+        if (!seen[id])
+          this.queue(graph[id].source)
+      }
+      this.queue(null)
+    })
 }
 
 function inline(mod, graph, seen) {

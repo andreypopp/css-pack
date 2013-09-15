@@ -35,5 +35,22 @@ describe('css-pack', function() {
       assert.ok(/\.body {/.exec(bundle))
       done()
     })
+  }),
+
+
+  it('bundles dependency graph which contains single node', function(done) {
+    var g = asStream(
+      {
+        id: 'a.css',
+        source: source('.a { background: red; }'),
+        deps: {}
+      }
+    )
+
+    aggregate(g.pipe(pack()), function(err, bundle) {
+      if (err) return done(err)
+      assert.ok(/\.a {/.exec(bundle))
+      done()
+    })
   })
 })
