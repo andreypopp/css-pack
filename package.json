@@ -1,6 +1,6 @@
 {
   "name": "css-pack",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Pack CSS dependency graphs into bundles",
   "main": "index.js",
   "bin": {
