@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Pack CSS dependency graphs into bundles",
   "main": "index.js",
+  "bin": {
+    "css-pack": "css-pack"
+  },
   "scripts": {
     "test": "./node_modules/.bin/mocha specs.js"
   },
