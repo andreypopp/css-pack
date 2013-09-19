@@ -11,7 +11,7 @@ module.exports = function(opts) {
     function(mod) {
       graph[mod.id] = mod
 
-      if (!mod.deps || Object.keys(mod.deps).length === 0) return
+      if (!mod.deps || (mod.deps && Object.keys(mod.deps).length === 0)) return
 
       if (seen[mod.id]) return
       seen[mod.id] = true
