@@ -5,7 +5,7 @@ single CSS bundle, assuming every node in the graph contains CSS source and the
 itself graph is sorted with `deps-sort`
 
     % npm install -g dgraph dgraph-css-import css-pack deps-sort
-    % dgraph --transform dgraph-css-import
+    % dgraph --transform dgraph-css-import style.css \
       | deps-sort \
       | css-pack \
       > bundle.css
