@@ -18,7 +18,11 @@ module.exports = function(opts) {
       if (seen[mod.id]) return;
       seen[mod.id] = true;
 
-      this.queue(inline(mod, graph, seen) + '\n');
+      try {
+        this.queue(inline(mod, graph, seen) + '\n');
+      } catch (err) {
+        this.emit('error', err);
+      }
     },
     function() {
       for (var id in graph) {
@@ -33,7 +37,7 @@ module.exports = function(opts) {
 
 function inline(mod, graph, seen) {
   var rules = [],
-      style = css.parse(mod.source.toString());
+      style = parse(mod.source, mod.id);
 
   style.stylesheet.rules.forEach(function (rule) {
     if (!isImportRule(rule))
@@ -46,12 +50,21 @@ function inline(mod, graph, seen) {
     else
       seen[id] = true;
 
-    rules = rules.concat(css.parse(graph[id].source).stylesheet.rules);
+
+    rules = rules.concat(parse(graph[id].source, id).stylesheet.rules);
   });
 
   style.stylesheet.rules = rules;
 
   return css.stringify(style);
+}
+
+function parse(source, filename) {
+  try {
+    return css.parse(source.toString());
+  } catch(err) {
+    throw new Error('error while parsing ' + filename + ': ' + err);
+  }
 }
 
 function isImportRule(r) {
