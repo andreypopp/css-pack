@@ -6,7 +6,7 @@ install link:
 	@npm $@
 
 lint:
-	@$(BIN)/jshint index.js deps-topo-sort.js
+	@$(BIN)/jshint index.js
 
 test:
 	@$(BIN)/mocha -R spec specs.js
