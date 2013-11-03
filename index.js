@@ -1,18 +1,23 @@
 "use strict";
 
-var through   = require('through'),
-    css       = require('css'),
-    duplex    = require('stream-combiner'),
-    sort      = require('deps-topo-sort');
+var through             = require('through'),
+    cssparse            = require('css-parse'),
+    stringify           = require('css-stringify'),
+    duplex              = require('stream-combiner'),
+    convertSourceMap    = require('convert-source-map'),
+    sort                = require('deps-topo-sort');
 
 module.exports = function(opts) {
   opts = opts || {};
 
-  var graph = {},
-      seen = {};
+  var debug = opts.debug,
+      graph = {},
+      seen = {},
+      generated = [];
 
   var pack = through(
     function(mod) {
+
       graph[mod.id] = mod;
 
       if (!mod.deps || (mod.deps && Object.keys(mod.deps).length === 0)) return;
@@ -21,53 +26,63 @@ module.exports = function(opts) {
       seen[mod.id] = true;
 
       try {
-        this.queue(inline(mod, graph, seen) + '\n');
+        modStyle(mod).stylesheet.rules.forEach(function (rule) {
+          if (!isImportRule(rule)) {
+            generated.push(rule);
+          } else {
+            var id = mod.deps[unquote(rule.import)];
+            if (seen[id]) return;
+            seen[id] = true;
+            var dep = graph[id];
+            generated = generated.concat(modStyle(dep).stylesheet.rules);
+          }
+        });
       } catch (err) {
         this.emit('error', err);
       }
     },
     function() {
-      for (var id in graph) {
+      for (var id in graph)
         if (!seen[id])
-          this.queue(graph[id].source);
+          generated = generated.concat(modStyle(graph[id]).stylesheet.rules);
+
+      var compiled = stringify({stylesheet: {rules: generated}}, {sourceMap: true});
+      this.queue(compiled.code);
+
+      if (opts.debug) {
+        var map = compiled.map;
+        map.file = 'generated.css';
+        map.sourcesContent = map.sources.map(function(id) {
+          return graph[id] ? modSource(graph[id]) : null;
+        });
+        this.queue('\n' + mapToComment(map));
       }
+
       this.queue(null);
     });
 
   return opts.sorted ? pack : duplex(sort(), pack);
 }
 
-function inline(mod, graph, seen) {
-  var rules = [],
-      style = mod.style ? mod.style : parse(mod.source, mod.id);
+function mapToComment(map){
+  return '/*# sourceMappingURL=data:application/json;base64,' +
+        convertSourceMap.fromObject(map).toBase64()
+        + ' */';
+  }
 
-  style.stylesheet.rules.forEach(function (rule) {
-    if (!isImportRule(rule))
-      return rules.push(rule);
-
-    var id = mod.deps[unquote(rule.import)];
-
-    if (seen[id])
-      return
-    else
-      seen[id] = true;
-
-
-    var dep = graph[id];
-    var style = dep.style || parse(dep.source, id);
-    rules = rules.concat(style.stylesheet.rules);
-  });
-
-  style.stylesheet.rules = rules;
-
-  return css.stringify(style);
+function modStyle(mod) {
+  return mod.style !== undefined ? mod.style : parse(mod.source, mod);
 }
 
-function parse(source, filename) {
+function modSource(mod) {
+  return mod.source !== undefined ? mod.source : stringify(mod.style);
+}
+
+function parse(source, mod) {
   try {
-    return css.parse(source.toString());
+    return cssparse(source.toString(), {source: mod.id, position: true});
   } catch(err) {
-    throw new Error('error while parsing ' + filename + ': ' + err);
+    throw new Error('error while parsing ' + mod.id + ': ' + err);
   }
 }
 
@@ -77,4 +92,11 @@ function isImportRule(r) {
 
 function unquote(str) {
   return str.replace(/^['"]/, '').replace(/['"]$/, '');
+}
+
+function countLines(src) {
+  if (!src) return 0;
+  var newlines = src.match(/\n/g);
+
+  return newlines ? newlines.length : 0;
 }

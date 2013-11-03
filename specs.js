@@ -3,7 +3,7 @@
 var assert = require('assert'),
     asStream = require('as-stream'),
     aggregate = require('stream-aggregate'),
-    css = require('css'),
+    cssparse = require('css-parse'),
     pack = require('./index');
 
 function source() {
@@ -59,12 +59,12 @@ describe('css-pack', function() {
     var g = asStream(
       {
         id: 'z.css',
-        style: css.parse(source('.a { background: red; }')),
+        style: cssparse(source('.a { background: red; }')),
         deps: {}
       },
       {
         id: 'main.css',
-        style: css.parse(source(
+        style: cssparse(source(
           '@import "./a.css";',
           '.body { font-size: 12px; }'
         )),
@@ -73,6 +73,32 @@ describe('css-pack', function() {
     )
 
     aggregate(g.pipe(pack()), function(err, bundle) {
+      if (err) return done(err)
+      assert.ok(!/@import/.exec(bundle))
+      assert.ok(/\.a {/.exec(bundle))
+      assert.ok(/\.body {/.exec(bundle))
+      done()
+    })
+  })
+
+  it('generates source maps in debug mode', function(done) {
+    var g = asStream(
+      {
+        id: 'z.css',
+        source: source('.a { background: red; }'),
+        deps: {}
+      },
+      {
+        id: 'main.css',
+        source: source(
+          '@import "./a.css";',
+          '.body { font-size: 12px; }'
+        ),
+        deps: {'./a.css': 'z.css'}
+      }
+    )
+
+    aggregate(g.pipe(pack({debug: true})), function(err, bundle) {
       if (err) return done(err)
       assert.ok(!/@import/.exec(bundle))
       assert.ok(/\.a {/.exec(bundle))
