@@ -3,7 +3,7 @@
 var through   = require('through'),
     css       = require('css'),
     duplex    = require('stream-combiner'),
-    sort      = require('./deps-topo-sort');
+    sort      = require('deps-topo-sort');
 
 module.exports = function(opts) {
   var graph = {},
