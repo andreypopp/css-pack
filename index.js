@@ -39,7 +39,7 @@ module.exports = function(opts) {
 
 function inline(mod, graph, seen) {
   var rules = [],
-      style = parse(mod.source, mod.id);
+      style = mod.style ? mod.style : parse(mod.source, mod.id);
 
   style.stylesheet.rules.forEach(function (rule) {
     if (!isImportRule(rule))
@@ -53,7 +53,9 @@ function inline(mod, graph, seen) {
       seen[id] = true;
 
 
-    rules = rules.concat(parse(graph[id].source, id).stylesheet.rules);
+    var dep = graph[id];
+    var style = dep.style || parse(dep.source, id);
+    rules = rules.concat(style.stylesheet.rules);
   });
 
   style.stylesheet.rules = rules;
