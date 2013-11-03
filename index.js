@@ -6,6 +6,8 @@ var through   = require('through'),
     sort      = require('deps-topo-sort');
 
 module.exports = function(opts) {
+  opts = opts || {};
+
   var graph = {},
       seen = {};
 
@@ -32,7 +34,7 @@ module.exports = function(opts) {
       this.queue(null);
     });
 
-  return duplex(sort(), pack);
+  return opts.sorted ? pack : duplex(sort(), pack);
 }
 
 function inline(mod, graph, seen) {
