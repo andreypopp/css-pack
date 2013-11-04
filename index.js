@@ -7,17 +7,19 @@ var through             = require('through'),
     convertSourceMap    = require('convert-source-map'),
     sort                = require('deps-topo-sort');
 
-module.exports = function(opts) {
-  opts = opts || {};
-
-  var graph = {},
+/**
+ * Create a consumer stream which collects all modules with CSS source and call
+ * a callback with a combiner stylesheet.
+ */
+function combine(cb) {
+  var modules = {},
       seen = {},
-      generated = [];
+      rules = [];
 
-  var pack = through(
+  return through(
     function(mod) {
 
-      graph[mod.id] = mod;
+      modules[mod.id] = mod;
 
       if (!mod.deps || (mod.deps && Object.keys(mod.deps).length === 0)) return;
 
@@ -27,47 +29,72 @@ module.exports = function(opts) {
       try {
         getStyle(mod).stylesheet.rules.forEach(function (rule) {
           if (!isImportRule(rule)) {
-            generated.push(rule);
+            rules.push(rule);
           } else {
             var id = mod.deps[unquote(rule.import)];
             if (seen[id]) return;
             seen[id] = true;
-            var dep = graph[id];
-            generated = generated.concat(getStyle(dep).stylesheet.rules);
+            var dep = modules[id];
+            rules = rules.concat(getStyle(dep).stylesheet.rules);
           }
         });
       } catch (err) {
-        this.emit('error', new PackError(mod, err));
+        cb(new PackError(mod, err));
       }
     },
     function() {
       try {
-        for (var id in graph)
+        for (var id in modules)
           if (!seen[id])
-            generated = generated.concat(getStyle(graph[id]).stylesheet.rules);
-
-        var compiled = stringify(
-            {stylesheet: {rules: generated}},
-            {sourceMap: true, compress: opts.compress});
-
-        this.queue(compiled.code);
-
-        if (opts.debug) {
-          var map = compiled.map;
-          map.file = 'generated.css';
-          map.sourcesContent = map.sources.map(function(id) {
-            return (graph[id] && graph[id].source) ? graph[id].source : null;
-          });
-          this.queue('\n' + mapToComment(map));
-        }
+            rules = rules.concat(getStyle(modules[id]).stylesheet.rules);
       } catch(err) {
-        this.emit('error', new PackError(null, err));
+        cb(new PackError(null, err));
       }
-
-      this.queue(null);
+      cb(null, {stylesheet: {rules: rules}}, modules);
     });
+}
 
-  return opts.sorted ? pack : duplex(sort(), pack);
+/**
+ * Wrapper around css-stringify which optionally adds inline source map
+ */
+function compile(style, opts) {
+  opts = opts || {};
+  var modules = opts.modules || {};
+  var buf = '';
+  var compiled = stringify(style, {sourceMap: true, compress: opts.compress});
+
+  buf += compiled.code;
+
+  if (opts.debug) {
+    var map = compiled.map;
+    map.file = 'generated.css';
+    map.sourcesContent = map.sources.map(function(id) {
+      return (modules[id] && modules[id].source) ? modules[id].source : null;
+    });
+    buf += '\n' + mapToComment(map);
+  }
+
+  return buf;
+}
+
+/**
+ * Stream which consumes CSS modules and emits a bundled CSS source.
+ */
+function packer(opts) {
+  opts = opts || {};
+  var combiner = combine(function(err, style, modules) {
+    if (err) return combiner.emit('error', err);
+    var packed;
+    opts.modules = modules;
+    try {
+      packed = compile(style, opts);
+    } catch(cerr) {
+      return combiner.emit('error', cerr);
+    }
+    combiner.queue(packed);
+    combiner.queue(null);
+  });
+  return opts.sorted ? combiner : duplex(sort(), combiner);
 }
 
 function mapToComment(map){
@@ -101,3 +128,7 @@ function PackError(mod, underlying) {
 }
 PackError.prototype = new Error();
 PackError.prototype.name = 'PackError';
+
+module.exports = packer;
+module.exports.combine = combine;
+module.exports.compile = compile;
