@@ -26,7 +26,7 @@ module.exports = function(opts) {
       seen[mod.id] = true;
 
       try {
-        modStyle(mod).stylesheet.rules.forEach(function (rule) {
+        getStyle(mod).stylesheet.rules.forEach(function (rule) {
           if (!isImportRule(rule)) {
             generated.push(rule);
           } else {
@@ -34,28 +34,32 @@ module.exports = function(opts) {
             if (seen[id]) return;
             seen[id] = true;
             var dep = graph[id];
-            generated = generated.concat(modStyle(dep).stylesheet.rules);
+            generated = generated.concat(getStyle(dep).stylesheet.rules);
           }
         });
       } catch (err) {
-        this.emit('error', err);
+        this.emit('error', new PackError(mod, err));
       }
     },
     function() {
-      for (var id in graph)
-        if (!seen[id])
-          generated = generated.concat(modStyle(graph[id]).stylesheet.rules);
+      try {
+        for (var id in graph)
+          if (!seen[id])
+            generated = generated.concat(getStyle(graph[id]).stylesheet.rules);
 
-      var compiled = stringify({stylesheet: {rules: generated}}, {sourceMap: true});
-      this.queue(compiled.code);
+        var compiled = stringify({stylesheet: {rules: generated}}, {sourceMap: true});
+        this.queue(compiled.code);
 
-      if (opts.debug) {
-        var map = compiled.map;
-        map.file = 'generated.css';
-        map.sourcesContent = map.sources.map(function(id) {
-          return graph[id] ? modSource(graph[id]) : null;
-        });
-        this.queue('\n' + mapToComment(map));
+        if (opts.debug) {
+          var map = compiled.map;
+          map.file = 'generated.css';
+          map.sourcesContent = map.sources.map(function(id) {
+            return (graph[id] && graph[id].source) ? graph[id].source : null;
+          });
+          this.queue('\n' + mapToComment(map));
+        }
+      } catch(err) {
+        this.emit('error', new PackError(null, err));
       }
 
       this.queue(null);
@@ -70,20 +74,10 @@ function mapToComment(map){
         + ' */';
   }
 
-function modStyle(mod) {
-  return mod.style !== undefined ? mod.style : parse(mod.source, mod);
-}
-
-function modSource(mod) {
-  return mod.source !== undefined ? mod.source : stringify(mod.style);
-}
-
-function parse(source, mod) {
-  try {
-    return cssparse(source.toString(), {source: mod.id, position: true});
-  } catch(err) {
-    throw new Error('error while parsing ' + mod.id + ': ' + err);
-  }
+function getStyle(mod) {
+  return mod.style !== undefined ?
+    mod.style :
+    cssparse(mod.source.toString(), {source: mod.id, position: true});
 }
 
 function isImportRule(r) {
@@ -100,3 +94,15 @@ function countLines(src) {
 
   return newlines ? newlines.length : 0;
 }
+
+function PackError(mod, underlying) {
+  var msg = mod ?
+    (underlying.toString() + ' (while packing ' + mod.id + ')') :
+    underlying.toString();
+  Error.call(this, msg);
+  this.mod = mod;
+  this.underlying = underlying;
+  this.stack = underlying.stack;
+}
+PackError.prototype = new Error;
+PackError.prototype.name = 'PackError';

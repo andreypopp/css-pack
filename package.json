@@ -34,7 +34,7 @@
     "JSONStream": "~0.7.1",
     "stream-combiner": "0.0.2",
     "deps-topo-sort": "~0.2.0",
-    "css-parse": "git+https://github.com/visionmedia/css-parse",
+    "css-parse": "git+https://github.com/andreypopp/css-parse",
     "css-stringify": "git+https://github.com/andreypopp/css-stringify",
     "convert-source-map": "~0.2.6"
   }
