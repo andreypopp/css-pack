@@ -10,8 +10,7 @@ var through             = require('through'),
 module.exports = function(opts) {
   opts = opts || {};
 
-  var debug = opts.debug,
-      graph = {},
+  var graph = {},
       seen = {},
       generated = [];
 
@@ -47,7 +46,10 @@ module.exports = function(opts) {
           if (!seen[id])
             generated = generated.concat(getStyle(graph[id]).stylesheet.rules);
 
-        var compiled = stringify({stylesheet: {rules: generated}}, {sourceMap: true});
+        var compiled = stringify(
+            {stylesheet: {rules: generated}},
+            {sourceMap: true, compress: opts.compress});
+
         this.queue(compiled.code);
 
         if (opts.debug) {
@@ -70,8 +72,8 @@ module.exports = function(opts) {
 
 function mapToComment(map){
   return '/*# sourceMappingURL=data:application/json;base64,' +
-        convertSourceMap.fromObject(map).toBase64()
-        + ' */';
+        convertSourceMap.fromObject(map).toBase64() +
+        ' */';
   }
 
 function getStyle(mod) {
@@ -88,13 +90,6 @@ function unquote(str) {
   return str.replace(/^['"]/, '').replace(/['"]$/, '');
 }
 
-function countLines(src) {
-  if (!src) return 0;
-  var newlines = src.match(/\n/g);
-
-  return newlines ? newlines.length : 0;
-}
-
 function PackError(mod, underlying) {
   var msg = mod ?
     (underlying.toString() + ' (while packing ' + mod.id + ')') :
@@ -104,5 +99,5 @@ function PackError(mod, underlying) {
   this.underlying = underlying;
   this.stack = underlying.stack;
 }
-PackError.prototype = new Error;
+PackError.prototype = new Error();
 PackError.prototype.name = 'PackError';
