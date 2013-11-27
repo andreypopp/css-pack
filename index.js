@@ -61,7 +61,7 @@ function compile(style, opts) {
   opts = opts || {};
   var modules = opts.modules || {};
   var buf = '';
-  var compiled = stringify(style, {sourceMap: true, compress: opts.compress});
+  var compiled = stringify(style, {sourcemap: true, compress: opts.compress});
 
   buf += compiled.code;
 

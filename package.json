@@ -35,7 +35,7 @@
     "stream-combiner": "0.0.2",
     "deps-topo-sort": "~0.2.0",
     "css-parse": "git+https://github.com/andreypopp/css-parse",
-    "css-stringify": "git+https://github.com/andreypopp/css-stringify",
+    "css-stringify": "1.4.0",
     "convert-source-map": "~0.2.6"
   }
 }
