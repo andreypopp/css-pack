@@ -16,7 +16,15 @@ function combine(cb) {
       seen = {},
       rules = [];
 
-  return through(
+  function callcb(e, r) {
+    try {
+      cb(e, r);
+    } catch(err) {
+      combiner.emit('error', err);
+    }
+  }
+
+  var combiner = through(
     function(mod) {
 
       modules[mod.id] = mod;
@@ -39,7 +47,7 @@ function combine(cb) {
           }
         });
       } catch (err) {
-        cb(new PackError(mod, err));
+        callcb(new PackError(mod, err));
       }
     },
     function() {
@@ -48,10 +56,12 @@ function combine(cb) {
           if (!seen[id])
             rules = rules.concat(getStyle(modules[id]).stylesheet.rules);
       } catch(err) {
-        cb(new PackError(null, err));
+        callcb(new PackError(null, err));
       }
-      cb(null, {stylesheet: {rules: rules}}, modules);
+      callcb(null, {stylesheet: {rules: rules}}, modules);
     });
+
+  return combiner;
 }
 
 /**
