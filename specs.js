@@ -10,6 +10,17 @@ function source() {
   return Array.prototype.join.call(arguments, '\n')
 }
 
+describe('combine()', function() {
+
+  it('propagates error inside callback on stream', function(done) {
+    var combiner = pack.combine(function(err, stylesheet) {
+      throw new Error();
+    });
+    combiner.on('error', function() { done(); });
+    asStream().pipe(combiner);
+  });
+});
+
 describe('css-pack', function() {
 
   it('bundles dependency graph', function(done) {
